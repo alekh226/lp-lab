@@ -1,0 +1,74 @@
+%{
+#include <stdio.h>
+#include <stdlib.h>
+#include "y.tab.h"  // generated via yacc -d
+%}
+
+%option noyywrap
+
+%%
+
+[0-9]+(\.[0-9]+)?([eE][0-9]+)?   {yylval.f = atof(yytext); return NUM;}
+[-+()*/]                         {return yytext[0];}
+[ \t\f\v\n]                      { ; }
+
+%%
+calc.y
+%{
+#include <stdio.h>
+#include <stdlib.h>
+extern int yylex();
+void yyerror(char *msg);
+%}
+
+%union {
+  float f;
+}
+
+%token <f> NUM
+%type <f> E T F
+
+%%
+
+S : E           {printf("%f\n", $1);}
+  ;
+
+E : E '+' T     {$$ = $1 + $3;}
+  | E '-' T     {$$ = $1 - $3;}
+  | T           {$$ = $1;}
+  ;
+
+T : T '*' F     {$$ = $1 * $3;}
+  | T '/' F     {$$ = $1 / $3;}
+  | F           {$$ = $1;}
+  ;
+
+F : '(' E ')'   {$$ = $2;}
+  | '-' F       {$$ = -$2;}
+  | NUM         {$$ = $1;}
+  ;
+
+%%
+void yyerror(char *msg) {
+    fprintf(stderr, "%s\n", msg);
+    exit(1);
+}
+int main() {
+    yyparse();
+    return 0;
+}
+makefile
+calc: lex.yy.c y.tab.c
+	cc lex.yy.c y.tab.c -o calc
+
+y.tab.c: calc.y
+	yacc -d calc.y
+
+lex.yy.c: calc.l
+	lex calc.l
+
+run: calc
+	./calc
+
+clean:
+rm -rf calc y.tab.c y.tab.h lex.yy.c
